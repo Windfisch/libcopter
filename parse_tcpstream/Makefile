@@ -1,2 +1,2 @@
-decode_video: decode_video.cpp
-	g++ decode_video.cpp -lswscale -lavcodec -lavutil -o decode_video
+decode_video: decode_video.cpp main.cpp
+	g++ $^ -lswscale -lavcodec -lavutil -o $@
