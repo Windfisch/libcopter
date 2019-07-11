@@ -46,7 +46,8 @@ struct VideoTelemetryParser
 	~VideoTelemetryParser();
 
 	void consume_data(const uint8_t* data, size_t data_size, DroneDataBase* drone_data);
-
+	
+private:
 	int parse_telemetry(const uint8_t* data, size_t data_size, DroneDataBase* drone_data, bool sync);
 	int parse_video(const uint8_t* data, size_t data_size, DroneDataBase* drone_data);
 
