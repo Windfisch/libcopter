@@ -20,6 +20,16 @@ struct payload_t
 	uint32_t value;
 	uint32_t timestamp;
 	uint32_t maybe_timestamp_high;
+
+	bool operator==(const payload_t& other)
+	{
+		return
+			this->type == other.type &&
+			this->counter == other.counter &&
+			this->value == other.value &&
+			this->timestamp == other.timestamp &&
+			this->maybe_timestamp_high == other.maybe_timestamp_high;
+	}
 };
 
 struct DroneDataBase
