@@ -4,7 +4,7 @@ This aims to be a library that supports various similar cheap
 china copters that are controlled via WiFi and have a camera on
 board.
 
-Currently, it is delivered for the **SG500** drone, but it seems
+Currently, it is developed for the **SG500** drone, but it seems
 that at least the **blue crab** drone works the very same way.
 
 The goal of this library will be to support controlling the drone
