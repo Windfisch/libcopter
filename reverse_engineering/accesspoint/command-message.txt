@@ -1,0 +1,18 @@
+Command syntax: 0xFF <cmd> <checksum>
+
+checksum is 1 byte, cmd is 9 bytes.
+sum(cmd) + checksum == 0xFF (mod 256).
+
+all trims default to 0x10 and range from 0x00 to 0x20.
+
+
+cmd[0] = ? (always 0x08)
+cmd[1] = left y   00..FF = bottom..top
+cmd[2] = left x   00..7F = left..right
+cmd[3] = right y  00..7F = top..bottom
+cmd[4] = right x  00..7F = left..right
+cmd[5] = ?  (0x80 -> auto altitude enabled. 0x40 -> gyro button in options (pulse), 0x00..0x20 = left x trim (left..right))
+cmd[6] = right y trim   00..20 = bottom..top [sic!]
+cmd[7] = right x trim   00..20 = left..right
+cmd[8] = flags  (0x40 -> auto launch, 0x20 -> panic, 0x80 -> auto land, 0x10 = compass button in options, 
+         0x03 mask is 0,1,2 for 30%,60%,100% button)
