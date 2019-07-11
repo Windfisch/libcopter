@@ -36,34 +36,12 @@
 
 #include <stdexcept>
 #include <fstream>
+#include <vector>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
-}
-
-
-void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame) {
-	FILE *pFile;
-	char szFilename[32];
-	int  y;
-
-	// Open file
-	sprintf(szFilename, "frame%d.ppm", iFrame);
-	pFile=fopen(szFilename, "wb");
-	if(pFile==NULL)
-		return;
-
-	// Write header
-	fprintf(pFile, "P6\n%d %d\n255\n", width, height);
-
-	// Write pixel data
-	for(y=0; y<height; y++)
-		fwrite(pFrame->data[0]+y*pFrame->linesize[0], 1, width*3, pFile);
-
-	// Close file
-	fclose(pFile);
 }
 
 
@@ -76,15 +54,75 @@ struct payload_t
 	uint32_t maybe_timestamp_high;
 };
 
+struct DroneDataBase
+{
+	virtual void add_video_frame(uint8_t* data, int y_stride, int width, int height) = 0;
+	virtual void add_telemetry_data(const payload_t& payload)
+	{
+		switch (payload.type)
+		{
+			case 0xA1: telemetry_alti.emplace_back(payload); break;
+			case 0xA0: telemetry_batt.emplace_back(payload); break;
+			default: telemetry_other.emplace_back(payload); break;
+		}
+	}
+
+	std::vector<payload_t> telemetry_batt;
+	std::vector<payload_t> telemetry_alti;
+	std::vector<payload_t> telemetry_other;
+};
+
+struct DummyDroneData : public DroneDataBase
+{
+	virtual void add_video_frame(uint8_t* data, int y_stride, int width, int height)
+	{
+		FILE *pFile;
+		char szFilename[32];
+		int y;
+
+		// Open file
+		sprintf(szFilename, "frame%d.ppm", frame_count);
+		pFile=fopen(szFilename, "wb");
+		if(pFile==NULL)
+			return;
+
+		// Write header
+		fprintf(pFile, "P6\n%d %d\n255\n", width, height);
+
+		// Write pixel data
+		for(y=0; y<height; y++)
+			fwrite(data+y*y_stride, 1, width*3, pFile);
+
+		// Close file
+		fclose(pFile);
+		
+		frame_count++;
+	}
+
+	int frame_count = 0;
+};
+
+/*
+struct OpenCVDroneData : public DroneDataBase
+{
+	virtual void add_video_frame(uint8_t* data, int y_stride, int width, int height)
+	{
+		...
+	}
+
+	std::vector<cv::Mat> video_frames;
+};
+*/
+
 struct VideoTelemetryParser
 {
 	VideoTelemetryParser();
 	~VideoTelemetryParser();
 
-	void consume_data(const uint8_t* data, size_t data_size);
+	void consume_data(const uint8_t* data, size_t data_size, DroneDataBase* drone_data);
 
-	int parse_telemetry(const uint8_t* data, size_t data_size, payload_t* pl, bool sync);
-	int parse_video(const uint8_t* data, size_t data_size);
+	int parse_telemetry(const uint8_t* data, size_t data_size, DroneDataBase* drone_data, bool sync);
+	int parse_video(const uint8_t* data, size_t data_size, DroneDataBase* drone_data);
 
 	// these are initialized in the constructor
 	const AVCodec* codec;
@@ -104,8 +142,6 @@ struct VideoTelemetryParser
 	static constexpr size_t TELEMETRY_BUFFER_LENGTH = 45;
 	uint8_t telemetry_buffer[TELEMETRY_BUFFER_LENGTH];
 	size_t telemetry_buf_idx = 0;
-
-	payload_t payload; // FIXME
 };
 
 VideoTelemetryParser::VideoTelemetryParser()
@@ -141,7 +177,7 @@ VideoTelemetryParser::~VideoTelemetryParser()
 	av_packet_free(&pkt);
 }
 
-void VideoTelemetryParser::consume_data(const uint8_t* data, size_t data_size)
+void VideoTelemetryParser::consume_data(const uint8_t* data, size_t data_size, DroneDataBase* drone_data)
 {
 	if (!data_size)
 		return;
@@ -174,9 +210,9 @@ void VideoTelemetryParser::consume_data(const uint8_t* data, size_t data_size)
 
 			// feed the data so far, up to (including) 00 00 01 into the currently active parser.
 			if (!parser_suppress)
-				parse_video(last_data, &data[i] - last_data); // feed everything up to excluding data[i] into the parser.
+				parse_video(last_data, &data[i] - last_data, drone_data); // feed everything up to excluding data[i] into the parser.
 			else
-				parse_telemetry(last_data, &data[i] - last_data, &payload, true);
+				parse_telemetry(last_data, &data[i] - last_data, drone_data, true);
 
 			last_data = &data[i];
 
@@ -189,13 +225,13 @@ void VideoTelemetryParser::consume_data(const uint8_t* data, size_t data_size)
 
 	// feed the remaining data from the buffer into the active parser
 	if (!parser_suppress)
-		parse_video(last_data, &data[data_size] - last_data); // feed everything up to excluding data[i] into the parser.
+		parse_video(last_data, &data[data_size] - last_data, drone_data); // feed everything up to excluding data[i] into the parser.
 	else
-		parse_telemetry(last_data, &data[data_size] - last_data, &payload, false);
+		parse_telemetry(last_data, &data[data_size] - last_data, drone_data, false);
 }
 
 
-int VideoTelemetryParser::parse_video(const uint8_t* data, size_t data_size)
+int VideoTelemetryParser::parse_video(const uint8_t* data, size_t data_size, DroneDataBase* drone_data)
 {
 	int n_frames = 0;
 	while (data_size > 0)
@@ -252,8 +288,8 @@ int VideoTelemetryParser::parse_video(const uint8_t* data, size_t data_size)
 					rgbframe->data, rgbframe->linesize
 				);
 
-				// Save the frame to disk
-				SaveFrame(rgbframe, frame->width, frame->height, c->frame_number);
+
+				drone_data->add_video_frame(rgbframe->data[0], rgbframe->linesize[0], frame->width, frame->height);
 				n_frames++;
 			}
 		}
@@ -266,11 +302,13 @@ int VideoTelemetryParser::parse_video(const uint8_t* data, size_t data_size)
 // parses the payload. returns -1 on error, or the amount of payloads
 // that have been parsed. the last payload is written to pl.
 // the value of pl is unchanged when 0 is returned.
-int VideoTelemetryParser::parse_telemetry(const uint8_t* data, size_t len, struct payload_t* pl, bool sync)
+int VideoTelemetryParser::parse_telemetry(const uint8_t* data, size_t len, DroneDataBase* drone_data, bool sync)
 {
 	int payload_cnt = 0;
 
 	printf("ALTERNATIVE PARSE:\n");
+
+	payload_t pl;
 
 	while (len > 0)
 	{
@@ -294,14 +332,15 @@ int VideoTelemetryParser::parse_telemetry(const uint8_t* data, size_t len, struc
 				return -1;
 			}
 
-			pl->type = telemetry_buffer[0];
-			pl->counter = telemetry_buffer[7];
-			pl->value = telemetry_buffer[13] | (telemetry_buffer[14]<<8) | (telemetry_buffer[15]<<16) | (telemetry_buffer[16]<<24);
-			pl->timestamp = telemetry_buffer[29] | (telemetry_buffer[30]<<8) | (telemetry_buffer[31]<<16) | (telemetry_buffer[32]<<24);
-			pl->maybe_timestamp_high = telemetry_buffer[33] | (telemetry_buffer[34]<<8) | (telemetry_buffer[35]<<16) | (telemetry_buffer[36]<<24);
+			pl.type = telemetry_buffer[0];
+			pl.counter = telemetry_buffer[7];
+			pl.value = telemetry_buffer[13] | (telemetry_buffer[14]<<8) | (telemetry_buffer[15]<<16) | (telemetry_buffer[16]<<24);
+			pl.timestamp = telemetry_buffer[29] | (telemetry_buffer[30]<<8) | (telemetry_buffer[31]<<16) | (telemetry_buffer[32]<<24);
+			pl.maybe_timestamp_high = telemetry_buffer[33] | (telemetry_buffer[34]<<8) | (telemetry_buffer[35]<<16) | (telemetry_buffer[36]<<24);
 
-			printf("alternative parse: type = %02x, counter = %02x, value = %9d, timestamp = %9d, timestamp_hi = %9d\n", (int)pl->type, (int)pl->counter, pl->value, pl->timestamp, pl->maybe_timestamp_high);
+			printf("alternative parse: type = %02x, counter = %02x, value = %9d, timestamp = %9d, timestamp_hi = %9d\n", (int)pl.type, (int)pl.counter, pl.value, pl.timestamp, pl.maybe_timestamp_high);
 
+			drone_data->add_telemetry_data(pl);
 			payload_cnt++;
 
 			telemetry_buf_idx = 0;
@@ -336,6 +375,7 @@ int main(int argc, const char** argv)
 	}
 
 	VideoTelemetryParser parser;
+	DummyDroneData dd;
 
 	ifstream f(argv[1], std::ios::binary);
 
@@ -343,6 +383,7 @@ int main(int argc, const char** argv)
 	{
 		f.read(reinterpret_cast<char*>(buf), BUFSIZE);
 		size_t n_read = f.gcount();
-		parser.consume_data(buf, n_read);
+
+		parser.consume_data(buf, n_read, &dd);
 	}
 }
