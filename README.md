@@ -1,7 +1,7 @@
 # libcopter, or rather libSG500 for now
 
 This aims to be a library that supports various similar cheap
-china copters that are controlled via WiFi and have a camera on
+chinese copters that are controlled via WiFi and have a camera on
 board.
 
 Currently, it is developed for the **SG500** drone, but it seems
