@@ -1,18 +1,27 @@
 #include <boost/python/module.hpp>
 #include <boost/python/def.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
-
+#include <boost/python/numpy.hpp>
 
 #include "decode_video.hpp"
+
+namespace np = boost::python::numpy;
+namespace p = boost::python;
 
 struct PyDroneData : public DroneDataBase
 {
 	virtual void add_video_frame(uint8_t* data, int y_stride, int width, int height)
 	{
-		video_frames.push_back(42);
+		p::tuple shape = p::make_tuple(height, width, 3);
+		p::tuple stride = p::make_tuple(y_stride,3,1);
+
+		p::object own;
+		np::ndarray temp = np::from_data(data, np::dtype::get_builtin<uint8_t>(), shape, stride, own);
+		np::ndarray result = temp.copy();
+		video_frames.append(result);
 	}
 
-	std::vector<int> video_frames;
+	boost::python::list video_frames;
 };
 
 struct PyVideoTelemetryParser
@@ -34,13 +43,16 @@ struct PyVideoTelemetryParser
 		VideoTelemetryParser p;
 };
 
-using namespace boost::python;
-
-using FrameList = std::vector<int>;
+using FrameList = std::vector<np::ndarray>;
 using TelemetryList = std::vector<payload_t>;
 
 BOOST_PYTHON_MODULE(libcopter)
 {
+	using namespace boost::python;
+
+	//Py_Initialize(); // seems unneeded
+	np::initialize();
+
 	class_<FrameList>("FrameList")
         .def(vector_indexing_suite<FrameList>() );
 	class_<TelemetryList>("TelemetryList")
