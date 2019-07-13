@@ -44,6 +44,14 @@ extern "C" {
 #include "decode_video.hpp"
 
 
+// #define DEBUG_PRINT // enable this for lots of debugging output
+
+#ifdef DEBUG_PRINT
+#define debugprintf(...) printf (__VA_ARGS__)
+#else
+#define debugprintf(...) do {} while(false);
+#endif
+
 VideoTelemetryParser::VideoTelemetryParser()
 {
 	pkt = av_packet_alloc();
@@ -82,8 +90,8 @@ void VideoTelemetryParser::consume_data(const uint8_t* data, size_t data_size, D
 	if (!data_size)
 		return;
 
-	printf("-----------------------------------------\n");
-	printf("parsing\n");
+	debugprintf("-----------------------------------------\n");
+	debugprintf("parsing\n");
 
 	// Split the stream at NALU boundaries. we need to do this on our own,
 	// because the stream contains invalid NALUs which would confuse FFMPEG.
@@ -106,7 +114,7 @@ void VideoTelemetryParser::consume_data(const uint8_t* data, size_t data_size, D
 
 		if ((parse_state & 0xFFFFFF00) == 0x00000100) // we're at the beginning of a new NAL. we have already fed 00 00 01 into the parser, but not yet the nal type which follows
 		{
-			printf("GOT FRAME %08X\n", parse_state);
+			debugprintf("GOT FRAME %08X\n", parse_state);
 
 			// feed the data so far, up to (including) 00 00 01 into the currently active parser.
 			if (!parser_suppress)
@@ -138,7 +146,7 @@ int VideoTelemetryParser::parse_video(const uint8_t* data, size_t data_size, Dro
 	{
 		int ret = av_parser_parse2(parser, c, &pkt->data, &pkt->size,
 				data, data_size, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
-		printf("parsed\n");
+		debugprintf("parsed\n");
 		if (ret < 0) {
 			fprintf(stderr, "Error while parsing\n");
 			exit(1);
@@ -150,9 +158,9 @@ int VideoTelemetryParser::parse_video(const uint8_t* data, size_t data_size, Dro
 		{
 			int ret;
 
-			printf("sending pkt\n");
+			debugprintf("sending pkt\n");
 			ret = avcodec_send_packet(c, pkt);
-			printf("sent pkt\n");
+			debugprintf("sent pkt\n");
 			if (ret < 0) // oops. this should not happen but sometimes does. just ignore it and live with some video corruption
 				break;
 
@@ -173,13 +181,13 @@ int VideoTelemetryParser::parse_video(const uint8_t* data, size_t data_size, Dro
 						 SWS_BILINEAR, NULL, NULL, NULL
 					);
 					if (!sws_ctx) throw std::runtime_error("Could not initialize software scaler");
-					printf("inited sws ctx\n");
+					debugprintf("inited sws ctx\n");
 					
 					// FIXME: error checking?
 					av_image_alloc(rgbframe->data, rgbframe->linesize, frame->width, frame->height, AV_PIX_FMT_RGB24, 1);
 				}
 
-				printf("w/h = %d / %d\n", frame->width, frame->height);
+				debugprintf("w/h = %d / %d\n", frame->width, frame->height);
 
 				// convert the frame to rgb
 				sws_scale(
@@ -206,7 +214,7 @@ int VideoTelemetryParser::parse_telemetry(const uint8_t* data, size_t len, Drone
 {
 	int payload_cnt = 0;
 
-	printf("ALTERNATIVE PARSE:\n");
+	debugprintf("ALTERNATIVE PARSE:\n");
 
 	payload_t pl;
 
@@ -220,11 +228,11 @@ int VideoTelemetryParser::parse_telemetry(const uint8_t* data, size_t len, Drone
 		if (telemetry_buf_idx == TELEMETRY_BUFFER_LENGTH)
 		{
 			for (size_t i=0; i<TELEMETRY_BUFFER_LENGTH; i++)
-				printf("%2x ", telemetry_buffer[i]);
-			printf("\n");
+				debugprintf("%2x ", telemetry_buffer[i]);
+			debugprintf("\n");
 			for (size_t i=0; i<TELEMETRY_BUFFER_LENGTH; i++)
-				printf("%2zu ", i);
-			printf("\n");
+				debugprintf("%2zu ", i);
+			debugprintf("\n");
 
 			if (!(telemetry_buffer[42] == 0 && telemetry_buffer[43] == 0 && telemetry_buffer[44] == 1))
 			{
@@ -238,7 +246,7 @@ int VideoTelemetryParser::parse_telemetry(const uint8_t* data, size_t len, Drone
 			pl.timestamp = telemetry_buffer[29] | (telemetry_buffer[30]<<8) | (telemetry_buffer[31]<<16) | (telemetry_buffer[32]<<24);
 			pl.maybe_timestamp_high = telemetry_buffer[33] | (telemetry_buffer[34]<<8) | (telemetry_buffer[35]<<16) | (telemetry_buffer[36]<<24);
 
-			printf("alternative parse: type = %02x, counter = %02x, value = %9d, timestamp = %9d, timestamp_hi = %9d\n", (int)pl.type, (int)pl.counter, pl.value, pl.timestamp, pl.maybe_timestamp_high);
+			debugprintf("alternative parse: type = %02x, counter = %02x, value = %9d, timestamp = %9d, timestamp_hi = %9d\n", (int)pl.type, (int)pl.counter, pl.value, pl.timestamp, pl.maybe_timestamp_high);
 
 			drone_data->add_telemetry_data(pl);
 			payload_cnt++;
