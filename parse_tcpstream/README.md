@@ -6,9 +6,22 @@ into libavcodec to obtain RGB images (which are saved frame-by-frame
 to the current working directory) and parse the latter according
 to [this documentation](../reverse_engineering/README.md).
 
-## Building
+Also, there are python bindings that use *boost::python*.
+
+## Building `decode_video`
 
 Prerequisites: FFMPEG and its libraries
 
 Just run `make`
 
+## Building the python bindings
+
+```
+mkdir build
+cd build
+cmake ..
+make
+```
+
+This will create `libcopter.so`. Move it to this directory, and
+then run `python_test.py` to test it.
