@@ -177,14 +177,14 @@ int VideoTelemetryParser::parse_video(const uint8_t* data, size_t data_size, Dro
 				{
 					sws_ctx = sws_getContext(
 						frame->width, frame->height, (enum AVPixelFormat) frame->format,
-						frame->width, frame->height, AV_PIX_FMT_RGB24,
+						frame->width, frame->height, AV_PIX_FMT_BGR24,
 						 SWS_BILINEAR, NULL, NULL, NULL
 					);
 					if (!sws_ctx) throw std::runtime_error("Could not initialize software scaler");
 					debugprintf("inited sws ctx\n");
 					
 					// FIXME: error checking?
-					av_image_alloc(rgbframe->data, rgbframe->linesize, frame->width, frame->height, AV_PIX_FMT_RGB24, 1);
+					av_image_alloc(rgbframe->data, rgbframe->linesize, frame->width, frame->height, AV_PIX_FMT_BGR24, 1);
 				}
 
 				debugprintf("w/h = %d / %d\n", frame->width, frame->height);
