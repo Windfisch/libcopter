@@ -55,7 +55,7 @@ height,yaw,pitch,roll = 0,0,0,0
 land,launch,panic = False,False,False
 i=0
 
-streamdump = open('steamdump.bin', 'wb')
+streamdump = open('streamdump.bin', 'wb')
 
 fourcc = cv2.VideoWriter_fourcc(*'X264')
 videodump = cv2.VideoWriter('output.avi',fourcc, 25.0, (1280,720))
