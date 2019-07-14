@@ -54,24 +54,43 @@ p = libcopter.PyVideoTelemetryParser()
 height,yaw,pitch,roll = 0,0,0,0
 land,launch,panic = False,False,False
 i=0
+
+streamdump = open('steamdump.bin', 'wb')
+
+fourcc = cv2.VideoWriter_fourcc(*'X264')
+videodump = cv2.VideoWriter('output.avi',fourcc, 25.0, (1280,720))
+
+telemetry_alti = None
+telemetry_batt = None
+
 while True:
 	i+=1
-	print(i, "tcp recv")
 	while True:
 		readable, _, _ = select([tcpsock], [], [], 0)
 		if len(readable) == 0:
 			break
 		tcpdata = tcpsock.recv(1024)
-		print(len(tcpdata))
+		streamdump.write(tcpdata)
 		result = p.consume_data(tcpdata)
 
 		if len(result.video_frames) > 0:
 			cv2.imshow("frame", result.video_frames[-1])
-	
-	print(i, "tcp send")
+
+			for vf in result.video_frames:
+				videodump.write(vf)
+
+		if len(result.telemetry_batt):
+			telemetry_batt = result.telemetry_batt[-1]
+		if len(result.telemetry_alti):
+			telemetry_alti = result.telemetry_alti[-1]
+		if len(result.telemetry_other):
+			print("\ngot unknown telemetry?!\n")
+
+	if telemetry_alti is not None and telemetry_batt is not None:
+		print("\r#%010d: batt = %10d @ %08x %08X, altitude = %10d @ %08x %08X" % (i, telemetry_batt.value, telemetry_batt.timestamp, telemetry_batt.maybe_timestamp_high, telemetry_alti.value, telemetry_alti.timestamp, telemetry_alti.maybe_timestamp_high), end='')
+
 	tcpsock.send(bytes([0,1,2,3,4,5,6,7,8,9, 0x28, 0x28])) # this is required to start the video stream
 	
-	print(i, "waitkey")
 	k = cv2.waitKey(30)
 	if k == ord("w"):
 		pitch = min(pitch+0.25, 1)
@@ -98,7 +117,6 @@ while True:
 	elif k == ord("1") or k == ord("2") or k == ord("3"):
 		height,yaw,pitch,roll = 0,0,0,0
 	
-	print(i, "udp send")
 	
 	sock.sendto( command.make_command(height, yaw, pitch, roll, launch=launch, land=land, panic=panic), (IP, PORT) )
 
