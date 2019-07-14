@@ -40,8 +40,8 @@ tcpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
 tcpsock.connect((IP, 8888))
 
 tcpsock.send(bytes([0,1,2,3,4,5,6,7,8,9, 0x28, 0x28])) # this is required to start the video stream
-for i in range(100): # receive some video
-	print(len(tcpsock.recv(1024)), end=' ')
+#for i in range(100): # receive some video
+#	print(len(tcpsock.recv(1024)))
 print()
 
 print("calibrating...")
