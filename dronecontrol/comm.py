@@ -92,9 +92,9 @@ while True:
 	tcpsock.send(bytes([0,1,2,3,4,5,6,7,8,9, 0x28, 0x28])) # this is required to start the video stream
 	
 	k = cv2.waitKey(30)
-	if k == ord("w"):
+	if k == ord("s"):
 		pitch = min(pitch+0.25, 1)
-	elif k == ord("s"):
+	elif k == ord("w"):
 		pitch = max(pitch-0.25, -1)
 	elif k == ord("d"):
 		roll = min(roll+0.25, 1)
