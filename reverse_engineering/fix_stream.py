@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 import struct
 
 NAL_UNIT = 3
@@ -12,7 +13,7 @@ nal_unit_statistics2 = defaultdict(lambda : 0)
 nal_unit_len = defaultdict(lambda : 0)
 
 header = bytes([0x00, 0x00, 0x01])
-data = open("tcp-stream_take2", "rb").read()
+data = open(sys.argv[1], "rb").read()
 packets = [header + x for x in data.split(header) if len(x) > 0]
 
 # statistics
@@ -47,6 +48,8 @@ for p in packets:
 
 
 print("")
+print("-"*80)
+print("")
 
 def prettify(s):
 	rem = s[8:]
@@ -68,6 +71,9 @@ for nalu in nal_units:
 	print("")
 
 
+print("")
+print("-"*80)
+print("")
 
 for nalu in [0xa0, 0xa1]:
 	print("0x%02x packet decoding:" % nalu)
