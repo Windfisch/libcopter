@@ -32,7 +32,13 @@ struct payload_t
 	}
 };
 
-struct DroneDataBase
+struct DroneDataInterface
+{
+	virtual void add_video_frame(uint8_t* data, int y_stride, int width, int height) = 0;
+	virtual void add_telemetry_data(const payload_t& payload) = 0;
+};
+
+struct [[deprecated]] DroneDataBase : public DroneDataInterface
 {
 	virtual void add_video_frame(uint8_t* data, int y_stride, int width, int height) = 0;
 	virtual void add_telemetry_data(const payload_t& payload)
@@ -55,11 +61,11 @@ struct VideoTelemetryParser
 	VideoTelemetryParser();
 	~VideoTelemetryParser();
 
-	void consume_data(const uint8_t* data, size_t data_size, DroneDataBase* drone_data);
+	void consume_data(const uint8_t* data, size_t data_size, DroneDataInterface* drone_data);
 	
 private:
-	int parse_telemetry(const uint8_t* data, size_t data_size, DroneDataBase* drone_data, bool sync);
-	int parse_video(const uint8_t* data, size_t data_size, DroneDataBase* drone_data);
+	int parse_telemetry(const uint8_t* data, size_t data_size, DroneDataInterface* drone_data, bool sync);
+	int parse_video(const uint8_t* data, size_t data_size, DroneDataInterface* drone_data);
 
 	// these are initialized in the constructor
 	const AVCodec* codec;

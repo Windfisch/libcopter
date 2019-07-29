@@ -139,7 +139,7 @@ void VideoTelemetryParser::consume_data(const uint8_t* data, size_t data_size, D
 }
 
 
-int VideoTelemetryParser::parse_video(const uint8_t* data, size_t data_size, DroneDataBase* drone_data)
+int VideoTelemetryParser::parse_video(const uint8_t* data, size_t data_size, DroneDataInterface* drone_data)
 {
 	int n_frames = 0;
 	while (data_size > 0)
@@ -210,7 +210,7 @@ int VideoTelemetryParser::parse_video(const uint8_t* data, size_t data_size, Dro
 // parses the payload. returns -1 on error, or the amount of payloads
 // that have been parsed. the last payload is written to pl.
 // the value of pl is unchanged when 0 is returned.
-int VideoTelemetryParser::parse_telemetry(const uint8_t* data, size_t len, DroneDataBase* drone_data, bool sync)
+int VideoTelemetryParser::parse_telemetry(const uint8_t* data, size_t len, DroneDataInterface* drone_data, bool sync)
 {
 	int payload_cnt = 0;
 
