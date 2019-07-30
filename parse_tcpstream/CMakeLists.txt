@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 2.8.3)
 PROJECT ( Test CXX )
-
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 FIND_PACKAGE ( Threads REQUIRED )
 
 
-find_package( OpenCV REQUIRED )
+find_package( OpenCV REQUIRED core )
 
 
 message(STATUS "OpenCV library status:")

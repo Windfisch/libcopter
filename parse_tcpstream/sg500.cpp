@@ -201,6 +201,36 @@ static std::vector<uint8_t> make_command(float height, float yaw, float pitch, f
 	);
 }
 
+static void put_int(uint8_t buf[4], uint32_t val)
+{
+	buf[0] = (val      ) & 0xFF;
+	buf[1] = (val >>  8) & 0xFF;
+	buf[2] = (val >> 16) & 0xFF;
+	buf[3] = (val >> 24) & 0xFF;
+}
+
+static std::pair< std::vector<uint8_t>, std::string > make_date_messages(std::chrono::system_clock::time_point now = std::chrono::system_clock::now())
+{
+	time_t tt = std::chrono::system_clock::to_time_t(now);
+	tm t = *localtime(&tt); 
+
+	vector<uint8_t> msg1(29,0);
+	msg1[0] = 0x26;
+	put_int(&msg1[ 1], t.tm_year + 1900);
+	put_int(&msg1[ 5], t.tm_mon + 1);
+	put_int(&msg1[ 9], t.tm_mday);
+	put_int(&msg1[13], t.tm_wday);
+	put_int(&msg1[17], t.tm_hour);
+	put_int(&msg1[21], t.tm_min);
+	put_int(&msg1[25], t.tm_sec);
+
+
+	char msg2_buf[32];
+	std::snprintf(msg2_buf, sizeof(msg2_buf), "date -s \"%4d-%02d-%02d %02d:%02d:%02d\"", t.tm_year+1900, t.tm_mon+1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
+
+	return make_pair(msg1, string(msg2_buf));
+}
+
 static std::string udp_recv(ba::ip::udp::socket& udp_socket)
 {
 	std::array<char,128> recv_buf;
@@ -240,12 +270,14 @@ bool SG500::initialize(int n)
 	udp_socket.send(ba::buffer({0x0F})); // reset
 
 	string drone_type, drone_version;
+	int tries;
 
+	tries = 20;
 	while(1)
 	{
 		udp_socket.send(ba::buffer({0x28})); // request UDP720P message
 		cout << "requesting UDP720P message" << endl;
-		string reply = udp_recv(udp_socket, 500ms);
+		string reply = udp_recv(udp_socket, 100ms);
 		if (reply.substr(0,3) == "UDP")
 		{
 			drone_type = reply;
@@ -254,20 +286,21 @@ bool SG500::initialize(int n)
 		else if (!reply.empty())
 		{
 			cerr << "got unexpected reply to 0x28 initialization command: '" << reply << "'" << endl;
-			return initialize(n-1);
 		}
+
+		if (--tries <= 0)
+			return initialize(n-1);
 	}
 	cout << "Drone type is '" << drone_type << "'" << endl;
 
 
+	tries = 20;
 	while(1)
 	{
 		udp_socket.send(ba::buffer({0x28})); // request version message
 		cout << "requesting version message" << endl;
-		string reply = udp_recv(udp_socket, 500ms);
-		if (reply == drone_type)
-			cerr << "ignoring duplicate '" << drone_type << "' message when waiting for version" << endl;
-		else if (reply.substr(0,1) == "V")
+		string reply = udp_recv(udp_socket, 100ms);
+		if (reply.substr(0,1) == "V")
 		{
 			drone_version = reply;
 			break;
@@ -275,24 +308,48 @@ bool SG500::initialize(int n)
 		else if (!reply.empty())
 		{
 			cerr << "got unexpected reply to 0x28 initialization command: '" << reply << "'" << endl;
-			return initialize(n-1);
 		}
+
+		if (--tries <= 0)
+			return initialize(n-1);
 	}
 	cout << "Drone version is '" << drone_version << "'" << endl;
 
 
-	//udp_socket.send(ba::buffer({0x42})); // announce date commands
-	// TODO time command
+	tries = 20;
+	while (1)
+	{
+		auto [msg1, msg2] = make_date_messages();
+
+		udp_socket.send(ba::buffer({0x42})); // announce date commands
+		udp_socket.send(ba::buffer(msg1));
+		udp_socket.send(ba::buffer(msg2));
+		
+		string reply = udp_recv(udp_socket, 100ms);
+		cout << reply << endl;
+		if (reply.substr(0,6) == "timeok")
+			break;
+
+		if (--tries <= 0)
+		{
+			cout << "got no timeok :(" << endl;
+			break;
+		}
+	}
 
 
+	tries = 20;
 	while(1)
 	{
 		cout << "requesting ok message" << endl;
 		udp_socket.send(ba::buffer({0x2c})); // request "ok"
-		string reply = udp_recv(udp_socket, 500ms);
+		string reply = udp_recv(udp_socket, 100ms);
 		cout << reply << endl;
 		if (reply.substr(0,2) == "ok")
 			break;
+
+		if (--tries <= 0)
+			return initialize(n-1);
 	}
 
 	cout << "initialization complete" << endl;
