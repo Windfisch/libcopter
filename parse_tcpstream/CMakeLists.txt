@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 2.8.3)
+PROJECT ( Test CXX )
+
+
+FIND_PACKAGE ( Threads REQUIRED )
+
 
 find_package( OpenCV REQUIRED )
 
@@ -22,7 +27,10 @@ endif()
 
 
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
-LINK_LIBRARIES(${Boost_LIBRARIES} ${PYTHON_LIBRARIES} -lswscale -lavcodec -lavutil ${OpenCV_LIBS}) # Deprecated but so convenient!
+LINK_LIBRARIES(${Boost_LIBRARIES} ${PYTHON_LIBRARIES} -lswscale -lavcodec -lavutil ${OpenCV_LIBS} ${CMAKE_THREAD_LIBS_INIT}) # Deprecated but so convenient!
 
 PYTHON_ADD_MODULE(libcopter python_wrapper.cpp decode_video.cpp sg500.cpp)
 #FILE(COPY MyProject.py DESTINATION .) # See the whole tutorial to understand this line
+
+add_executable(test_cpp decode_video.cpp sg500.cpp test_cpp.cpp)
+

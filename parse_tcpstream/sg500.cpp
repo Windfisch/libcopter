@@ -26,9 +26,13 @@ SG500::SG500(std::string host, int udp_port, int tcp_port) :
 
 	command_thread(&SG500::command_thread, this)
 {
+	cout << "SG500 ctor" << endl;
+
+	cout << "connecting tcp" << endl;
 	batcp::resolver tcp_resolver(io_context);
 	ba::connect(tcp_socket, tcp_resolver.resolve(host, to_string(tcp_port)));
 
+	cout << "connecting udp" << endl;
 	baudp::resolver udp_resolver(io_context);
 	ba::connect(udp_socket, udp_resolver.resolve(host, to_string(udp_port)));
 }
@@ -240,6 +244,7 @@ bool SG500::initialize(int n)
 	while(1)
 	{
 		udp_socket.send(ba::buffer({0x28})); // request UDP720P message
+		cout << "requesting UDP720P message" << endl;
 		string reply = udp_recv(udp_socket, 500ms);
 		if (reply.substr(0,3) == "UDP")
 		{
@@ -258,6 +263,7 @@ bool SG500::initialize(int n)
 	while(1)
 	{
 		udp_socket.send(ba::buffer({0x28})); // request version message
+		cout << "requesting version message" << endl;
 		string reply = udp_recv(udp_socket, 500ms);
 		if (reply == drone_type)
 			cerr << "ignoring duplicate '" << drone_type << "' message when waiting for version" << endl;
@@ -281,6 +287,7 @@ bool SG500::initialize(int n)
 
 	while(1)
 	{
+		cout << "requesting ok message" << endl;
 		udp_socket.send(ba::buffer({0x2c})); // request "ok"
 		string reply = udp_recv(udp_socket, 500ms);
 		cout << reply << endl;
@@ -289,6 +296,7 @@ bool SG500::initialize(int n)
 	}
 
 	cout << "initialization complete" << endl;
+	return true;
 
 
 /*for i in range(100):
