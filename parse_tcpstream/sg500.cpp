@@ -233,13 +233,13 @@ bool SG500::initialize(int n)
 		return false;
 
 	cerr << "resetting the drone" << endl;
-	ba::write(udp_socket, ba::buffer({0x0F})); // reset
+	udp_socket.send(ba::buffer({0x0F})); // reset
 
 	string drone_type, drone_version;
 
 	while(1)
 	{
-		ba::write(udp_socket, ba::buffer({0x28})); // request UDP720P message
+		udp_socket.send(ba::buffer({0x28})); // request UDP720P message
 		string reply = udp_recv(udp_socket, 500ms);
 		if (reply.substr(0,3) == "UDP")
 		{
@@ -252,13 +252,12 @@ bool SG500::initialize(int n)
 			return initialize(n-1);
 		}
 	}
-
 	cout << "Drone type is '" << drone_type << "'" << endl;
 
 
 	while(1)
 	{
-		ba::write(udp_socket, ba::buffer({0x28})); // request version message
+		udp_socket.send(ba::buffer({0x28})); // request version message
 		string reply = udp_recv(udp_socket, 500ms);
 		if (reply == drone_type)
 			cerr << "ignoring duplicate '" << drone_type << "' message when waiting for version" << endl;
@@ -273,17 +272,26 @@ bool SG500::initialize(int n)
 			return initialize(n-1);
 		}
 	}
-
 	cout << "Drone version is '" << drone_version << "'" << endl;
 
-sock.sendto(bytes([0x0f]), (IP, PORT))
-sock.sendto(bytes([0x28]), (IP, PORT)) # request UDP720P message
-print(sock.recvfrom(100))
-sock.sendto(bytes([0x28]), (IP, PORT)) # request version message
-print(sock.recvfrom(100))
-sock.sendto(bytes([0x42]), (IP, PORT))
 
-for i in range(100):
+	//udp_socket.send(ba::buffer({0x42})); // announce date commands
+	// TODO time command
+
+
+	while(1)
+	{
+		udp_socket.send(ba::buffer({0x2c})); // request "ok"
+		string reply = udp_recv(udp_socket, 500ms);
+		cout << reply << endl;
+		if (reply.substr(0,2) == "ok")
+			break;
+	}
+
+	cout << "initialization complete" << endl;
+
+
+/*for i in range(100):
 	msg1, msg2 = command.make_date_messages() # todo: check for 'timeok'
 	sock.sendto(msg1, (IP, PORT))
 	sock.sendto(msg2, (IP, PORT))
@@ -294,6 +302,6 @@ sock.sendto(bytes([0x2c]), (IP, PORT)) # causes "ok\x02"
 #sock.sendto(bytes([0x27]), (IP, PORT))
 print(sock.recvfrom(100))
 
-print("initialization complete, now opening the video+telemetry TCP socket")
+print("initialization complete, now opening the video+telemetry TCP socket")*/
 
 }

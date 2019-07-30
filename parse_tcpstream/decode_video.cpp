@@ -85,7 +85,7 @@ VideoTelemetryParser::~VideoTelemetryParser()
 	av_packet_free(&pkt);
 }
 
-void VideoTelemetryParser::consume_data(const uint8_t* data, size_t data_size, DroneDataBase* drone_data)
+void VideoTelemetryParser::consume_data(const uint8_t* data, size_t data_size, DroneDataInterface* drone_data)
 {
 	if (!data_size)
 		return;
