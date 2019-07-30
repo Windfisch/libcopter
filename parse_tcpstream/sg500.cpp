@@ -248,6 +248,7 @@ static std::string udp_recv(ba::ip::udp::socket& udp_socket)
 
 static std::string udp_recv(ba::ip::udp::socket& udp_socket, std::chrono::milliseconds timeout)
 {
+	auto start = std::chrono::steady_clock::now();
 	while(1)
 	{
 		string reply = udp_recv(udp_socket);
@@ -256,6 +257,9 @@ static std::string udp_recv(ba::ip::udp::socket& udp_socket, std::chrono::millis
 			std::this_thread::sleep_for(10ms);
 		else
 			return reply;
+
+		if (std::chrono::steady_clock::now() > start + timeout)
+			return "";
 	}
 }
 
@@ -272,12 +276,12 @@ bool SG500::initialize(int n)
 	string drone_type, drone_version;
 	int tries;
 
-	tries = 20;
+	tries = 5;
 	while(1)
 	{
 		udp_socket.send(ba::buffer({0x28})); // request UDP720P message
 		cout << "requesting UDP720P message" << endl;
-		string reply = udp_recv(udp_socket, 100ms);
+		string reply = udp_recv(udp_socket, 30ms);
 		if (reply.substr(0,3) == "UDP")
 		{
 			drone_type = reply;
@@ -294,12 +298,12 @@ bool SG500::initialize(int n)
 	cout << "Drone type is '" << drone_type << "'" << endl;
 
 
-	tries = 20;
+	tries = 5;
 	while(1)
 	{
 		udp_socket.send(ba::buffer({0x28})); // request version message
 		cout << "requesting version message" << endl;
-		string reply = udp_recv(udp_socket, 100ms);
+		string reply = udp_recv(udp_socket, 30ms);
 		if (reply.substr(0,1) == "V")
 		{
 			drone_version = reply;
@@ -316,17 +320,19 @@ bool SG500::initialize(int n)
 	cout << "Drone version is '" << drone_version << "'" << endl;
 
 
-	tries = 20;
+	tries = 5;
 	while (1)
 	{
 		auto [msg1, msg2] = make_date_messages();
 
+		cout << "sending date message (tries remaining:" << tries << ")" << endl;
 		udp_socket.send(ba::buffer({0x42})); // announce date commands
 		udp_socket.send(ba::buffer(msg1));
 		udp_socket.send(ba::buffer(msg2));
 		
-		string reply = udp_recv(udp_socket, 100ms);
-		cout << reply << endl;
+		cout << "recv" << endl;
+		string reply = udp_recv(udp_socket, 30ms);
+		cout << "got " << reply << endl;
 		if (reply.substr(0,6) == "timeok")
 			break;
 
@@ -338,12 +344,12 @@ bool SG500::initialize(int n)
 	}
 
 
-	tries = 20;
+	tries = 5;
 	while(1)
 	{
 		cout << "requesting ok message" << endl;
 		udp_socket.send(ba::buffer({0x2c})); // request "ok"
-		string reply = udp_recv(udp_socket, 100ms);
+		string reply = udp_recv(udp_socket, 30ms);
 		cout << reply << endl;
 		if (reply.substr(0,2) == "ok")
 			break;
