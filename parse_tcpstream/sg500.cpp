@@ -23,8 +23,7 @@ SG500::SG500(std::string host, int udp_port, int tcp_port) :
 	takeoff_until( std::chrono::steady_clock::now() ),
 	land_until( std::chrono::steady_clock::now() ),
 	panic_until( std::chrono::steady_clock::now() ),
-
-	command_thread(&SG500::command_thread_func, this)
+	next_video_heartbeat( std::chrono::steady_clock::now() )
 {
 	cout << "SG500 ctor" << endl;
 
@@ -122,7 +121,6 @@ struct DroneDataHandler : public DroneDataInterface
 		}
 		telemetry.push_back({payload.timestamp/1000000., type, payload.value});
 	}
-	
 
 	std::vector<SG500::VideoFrame> video;
 	std::vector<SG500::TelemetryFrame> telemetry;
@@ -131,22 +129,24 @@ struct DroneDataHandler : public DroneDataInterface
 std::pair< std::vector<SG500::VideoFrame>, std::vector<SG500::TelemetryFrame> > SG500::poll_data()
 {
 	std::array<uint8_t, 1024> buf;
-	uint8_t keepalive[] = {0,1,2,3,4,5,6,7,8,9,0x28,0x28};
+
+	auto now = chrono::steady_clock::now();
+	if (now > next_video_heartbeat)
+	{
+		ba::write(tcp_socket, ba::buffer({0,1,2,3,4,5,6,7,8,9,0x28,0x28})); // send the whole buffer, allow no short writes
+		next_video_heartbeat = now + 800ms; // the app waits one second. better be safe than sorry.
+	}
 	
 	DroneDataHandler data_handler;
 
 	while (tcp_socket.available())
 	{
-		// send the whole buffer, allow no short writes
-		ba::write(tcp_socket, ba::buffer(keepalive));
-
 		boost::system::error_code error;
 		size_t len = tcp_socket.read_some(boost::asio::buffer(buf), error);
 
 		if (error)
 			throw boost::system::system_error(error);
 		
-		// TODO: parse buf
 		parser.consume_data(buf.data(), len, &data_handler);
 	}
 	
@@ -329,6 +329,7 @@ bool SG500::initialize(int n)
 		if (optional<string> result = expect(udp_socket, ba::buffer({0x2c}), [](string s) { return s.substr(0,2)=="ok"; }))
 		{
 			cout << " -> initialization complete :)" << endl;
+			command_thread = std::thread(&SG500::command_thread_func, this); // launch the command thread
 			return true;
 		}
 		else

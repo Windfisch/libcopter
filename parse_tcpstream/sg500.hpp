@@ -53,6 +53,8 @@ class SG500 : public Copter
 	boost::asio::ip::udp::socket udp_socket;
 
 	VideoTelemetryParser parser;
+
+	std::chrono::steady_clock::time_point next_video_heartbeat;
 	//DroneData data;
 
 	public:
