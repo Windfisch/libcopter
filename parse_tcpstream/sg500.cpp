@@ -290,7 +290,7 @@ optional<string> expect(baudp::socket& udp_socket, vector<ba::const_buffer> comm
     At most `tries` attempts are made, and each recv waits for at least `recv_timeout`. */
 optional<string> expect(baudp::socket& udp_socket, ba::const_buffer command, function<bool(string)> predicate, int tries = 5, std::chrono::milliseconds recv_timeout = 30ms)
 {
-	return expect(udp_socket, {command}, predicate, tries, recv_timeout);
+	return expect(udp_socket, vector<ba::const_buffer>{command}, predicate, tries, recv_timeout);
 }
 
 
