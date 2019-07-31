@@ -164,6 +164,16 @@ whenever the motors are turned up. Maybe a battery voltage?
 
 TODO: insert graphs here.
 
+The client app sends the following data to the drone over the video tcp stream every second to keep the
+stream going: `00 01 02 03 04 05 06 07 08 09 28 28` (hex)
+
+Also, there's another tcp stream on the same port, that seems to do the same chat every 1.5 seconds:
+
+```
+  (to drone) 00 01 02 03 04 05 06 07 08 09 25 25
+(from drone) 6e 6f 61 63 74 0d 0a                 "noact\r\n"
+```
+
 ## Telnet server
 
 There's a telnet server on port 23 running, offering a prompt of the "Finsh" shell of the chinese
