@@ -265,114 +265,75 @@ static std::string udp_recv(ba::ip::udp::socket& udp_socket, std::chrono::millis
 
 bool SG500::initialize() { return initialize(10); }
 
+
+/** Repeatedly send `commands`, and wait for a reply for which `predicate` returns true.
+    At most `tries` attempts are made, and each recv waits for at least `recv_timeout`. */
+optional<string> expect(baudp::socket& udp_socket, vector<ba::const_buffer> commands, function<bool(string)> predicate, int tries = 5, std::chrono::milliseconds recv_timeout = 30ms)
+{
+	for (int i=0; i<tries; i++)
+	{
+		cout << "." << flush;
+		for (const auto& command : commands)
+			udp_socket.send(command);
+
+		string reply = udp_recv(udp_socket, recv_timeout);
+
+		if (predicate(reply))
+			return reply;
+		else if (!reply.empty())
+			cout << "?('" << reply << "') " << flush;
+	}
+	return nullopt;
+}
+
+/** Repeatedly send `command`, and wait for a reply for which `predicate` returns true.
+    At most `tries` attempts are made, and each recv waits for at least `recv_timeout`. */
+optional<string> expect(baudp::socket& udp_socket, ba::const_buffer command, function<bool(string)> predicate, int tries = 5, std::chrono::milliseconds recv_timeout = 30ms)
+{
+	return expect(udp_socket, {command}, predicate, tries, recv_timeout);
+}
+
+
 bool SG500::initialize(int n)
 {
-	if (n==0)
-		return false;
-
-	cerr << "resetting the drone" << endl;
-	udp_socket.send(ba::buffer({0x0F})); // reset
-
-	string drone_type, drone_version;
-	int tries;
-
-	tries = 5;
-	while(1)
+	for (int i=0; i<n; i++)
 	{
-		udp_socket.send(ba::buffer({0x28})); // request UDP720P message
-		cout << "requesting UDP720P message" << endl;
-		string reply = udp_recv(udp_socket, 30ms);
-		if (reply.substr(0,3) == "UDP")
-		{
-			drone_type = reply;
-			break;
-		}
-		else if (!reply.empty())
-		{
-			cerr << "got unexpected reply to 0x28 initialization command: '" << reply << "'" << endl;
-		}
+		if (i!=0) cout << " :(" << endl;
+		cout << "resetting the drone" << endl;
+		udp_socket.send(ba::buffer({0x0F}));
 
-		if (--tries <= 0)
-			return initialize(n-1);
-	}
-	cout << "Drone type is '" << drone_type << "'" << endl;
+		string drone_type, drone_version;
 
+		cout << "requesting UDP720P message (via command 0x28)" << flush;
+		if (optional<string> result = expect(udp_socket, ba::buffer({0x28}), [](string s) { return s.substr(0,3)=="UDP"; }))
+			drone_type = *result;
+		else
+			continue;
+		cout << " -> '" << drone_type << "'" << endl;
 
-	tries = 5;
-	while(1)
-	{
-		udp_socket.send(ba::buffer({0x28})); // request version message
-		cout << "requesting version message" << endl;
-		string reply = udp_recv(udp_socket, 30ms);
-		if (reply.substr(0,1) == "V")
-		{
-			drone_version = reply;
-			break;
-		}
-		else if (!reply.empty())
-		{
-			cerr << "got unexpected reply to 0x28 initialization command: '" << reply << "'" << endl;
-		}
+		cout << "requesting version message" << flush;
+		if (optional<string> result = expect(udp_socket, ba::buffer({0x28}), [](string s) { return s.substr(0,1)=="V"; }))
+			drone_version = *result;
+		else
+			continue;
+		cout << " -> '" << drone_version << "'" << endl;
 
-		if (--tries <= 0)
-			return initialize(n-1);
-	}
-	cout << "Drone version is '" << drone_version << "'" << endl;
-
-
-	tries = 5;
-	while (1)
-	{
+		cout << "setting the time" << flush;
 		auto [msg1, msg2] = make_date_messages();
+		if (optional<string> result = expect(udp_socket, {ba::buffer({0x42}), ba::buffer(msg1), ba::buffer(msg2)}, [](string s) { return s.substr(0,6)=="timeok"; }))
+			cout << " -> timeok" << endl;
+		else
+			cout << " -> no timeok :(" << endl;
 
-		cout << "sending date message (tries remaining:" << tries << ")" << endl;
-		udp_socket.send(ba::buffer({0x42})); // announce date commands
-		udp_socket.send(ba::buffer(msg1));
-		udp_socket.send(ba::buffer(msg2));
-		
-		cout << "recv" << endl;
-		string reply = udp_recv(udp_socket, 30ms);
-		cout << "got " << reply << endl;
-		if (reply.substr(0,6) == "timeok")
-			break;
-
-		if (--tries <= 0)
+		cout << "finalizing" << flush;
+		if (optional<string> result = expect(udp_socket, ba::buffer({0x2c}), [](string s) { return s.substr(0,2)=="ok"; }))
 		{
-			cout << "got no timeok :(" << endl;
-			break;
+			cout << " -> initialization complete :)" << endl;
+			return true;
 		}
+		else
+			continue;
 	}
 
-
-	tries = 5;
-	while(1)
-	{
-		cout << "requesting ok message" << endl;
-		udp_socket.send(ba::buffer({0x2c})); // request "ok"
-		string reply = udp_recv(udp_socket, 30ms);
-		cout << reply << endl;
-		if (reply.substr(0,2) == "ok")
-			break;
-
-		if (--tries <= 0)
-			return initialize(n-1);
-	}
-
-	cout << "initialization complete" << endl;
-	return true;
-
-
-/*for i in range(100):
-	msg1, msg2 = command.make_date_messages() # todo: check for 'timeok'
-	sock.sendto(msg1, (IP, PORT))
-	sock.sendto(msg2, (IP, PORT))
-	time.sleep(0.01)
-
-sock.sendto(bytes([0x2c]), (IP, PORT)) # causes "ok\x02"
-#sock.sendto(bytes([0x27]), (IP, PORT)) # the app does this, but it seems unneeded
-#sock.sendto(bytes([0x27]), (IP, PORT))
-print(sock.recvfrom(100))
-
-print("initialization complete, now opening the video+telemetry TCP socket")*/
-
+	return false;
 }
