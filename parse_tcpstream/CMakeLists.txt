@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 FIND_PACKAGE ( Threads REQUIRED )
 
 
-find_package( OpenCV REQUIRED core )
+find_package( OpenCV REQUIRED core imgproc highgui)
 
 
 message(STATUS "OpenCV library status:")

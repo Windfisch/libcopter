@@ -15,10 +15,14 @@ namespace ba = boost::asio;
 using batcp = boost::asio::ip::tcp;
 using baudp = boost::asio::ip::udp;
 
-SG500::SG500(std::string host, int udp_port, int tcp_port) : 
+using bytes = std::vector<uint8_t>;
+
+SG500::SG500(std::string host_, int udp_port_, int tcp_port_) : 
 	io_context(),
 	tcp_socket(io_context),
 	udp_socket(io_context),
+
+	host(host_), udp_port(udp_port_), tcp_port(tcp_port_),
 
 	takeoff_until( std::chrono::steady_clock::now() ),
 	land_until( std::chrono::steady_clock::now() ),
@@ -27,13 +31,6 @@ SG500::SG500(std::string host, int udp_port, int tcp_port) :
 {
 	cout << "SG500 ctor" << endl;
 
-	cout << "connecting tcp" << endl;
-	batcp::resolver tcp_resolver(io_context);
-	ba::connect(tcp_socket, tcp_resolver.resolve(host, to_string(tcp_port)));
-
-	cout << "connecting udp" << endl;
-	baudp::resolver udp_resolver(io_context);
-	ba::connect(udp_socket, udp_resolver.resolve(host, to_string(udp_port)));
 }
 
 
@@ -133,7 +130,7 @@ std::pair< std::vector<SG500::VideoFrame>, std::vector<SG500::TelemetryFrame> > 
 	auto now = chrono::steady_clock::now();
 	if (now > next_video_heartbeat)
 	{
-		ba::write(tcp_socket, ba::buffer({0,1,2,3,4,5,6,7,8,9,0x28,0x28})); // send the whole buffer, allow no short writes
+		ba::write(tcp_socket, ba::buffer(bytes{0,1,2,3,4,5,6,7,8,9,0x28,0x28})); // send the whole buffer, allow no short writes
 		next_video_heartbeat = now + 800ms; // the app waits one second. better be safe than sorry.
 	}
 	
@@ -296,23 +293,26 @@ optional<string> expect(baudp::socket& udp_socket, ba::const_buffer command, fun
 
 bool SG500::initialize(int n)
 {
+	cout << "connecting udp" << endl;
+	baudp::resolver udp_resolver(io_context);
+	ba::connect(udp_socket, udp_resolver.resolve(host, to_string(udp_port)));
 	for (int i=0; i<n; i++)
 	{
 		if (i!=0) cout << " :(" << endl;
 		cout << "resetting the drone" << endl;
-		udp_socket.send(ba::buffer({0x0F}));
+		udp_socket.send(ba::buffer(bytes{0x0F}));
 
 		string drone_type, drone_version;
 
 		cout << "requesting UDP720P message (via command 0x28)" << flush;
-		if (optional<string> result = expect(udp_socket, ba::buffer({0x28}), [](string s) { return s.substr(0,3)=="UDP"; }))
+		if (optional<string> result = expect(udp_socket, ba::buffer(bytes{0x28}), [](string s) { return s.substr(0,3)=="UDP"; }))
 			drone_type = *result;
 		else
 			continue;
 		cout << " -> '" << drone_type << "'" << endl;
 
 		cout << "requesting version message" << flush;
-		if (optional<string> result = expect(udp_socket, ba::buffer({0x28}), [](string s) { return s.substr(0,1)=="V"; }))
+		if (optional<string> result = expect(udp_socket, ba::buffer(bytes{0x28}), [](string s) { return s.substr(0,1)=="V"; }))
 			drone_version = *result;
 		else
 			continue;
@@ -320,16 +320,19 @@ bool SG500::initialize(int n)
 
 		cout << "setting the time" << flush;
 		auto [msg1, msg2] = make_date_messages();
-		if (optional<string> result = expect(udp_socket, {ba::buffer({0x42}), ba::buffer(msg1), ba::buffer(msg2)}, [](string s) { return s.substr(0,6)=="timeok"; }))
+		if (optional<string> result = expect(udp_socket, {ba::buffer(bytes{0x42}), ba::buffer(msg1), ba::buffer(msg2)}, [](string s) { return s.substr(0,6)=="timeok"; }))
 			cout << " -> timeok" << endl;
 		else
 			cout << " -> no timeok :(" << endl;
 
 		cout << "finalizing" << flush;
-		if (optional<string> result = expect(udp_socket, ba::buffer({0x2c}), [](string s) { return s.substr(0,2)=="ok"; }))
+		if (optional<string> result = expect(udp_socket, ba::buffer(bytes{0x2c}), [](string s) { return s.substr(0,2)=="ok"; }))
 		{
 			cout << " -> initialization complete :)" << endl;
 			command_thread = std::thread(&SG500::command_thread_func, this); // launch the command thread
+			cout << "connecting tcp to port " << tcp_port << endl;
+			batcp::resolver tcp_resolver(io_context);
+			ba::connect(tcp_socket, tcp_resolver.resolve(host, to_string(tcp_port)));
 			return true;
 		}
 		else
