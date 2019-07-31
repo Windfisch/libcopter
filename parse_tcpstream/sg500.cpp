@@ -24,7 +24,7 @@ SG500::SG500(std::string host, int udp_port, int tcp_port) :
 	land_until( std::chrono::steady_clock::now() ),
 	panic_until( std::chrono::steady_clock::now() ),
 
-	command_thread(&SG500::command_thread, this)
+	command_thread(&SG500::command_thread_func, this)
 {
 	cout << "SG500 ctor" << endl;
 
@@ -83,7 +83,7 @@ void SG500::command_thread_func()
 	while(true)
 	{
 		std::unique_lock<std::mutex> lock(mutex);
-		condition_variable.wait_for(lock, 20ms, [this]{return update;});
+		condition_variable.wait_for(lock, 50ms, [this]{return update;});
 
 		auto now = std::chrono::steady_clock::now();
 		bool takeoff_flag = (now < takeoff_until);
