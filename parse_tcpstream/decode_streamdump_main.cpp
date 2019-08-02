@@ -4,7 +4,7 @@
 
 #include "decode_video.hpp"
 
-struct DummyDroneData : public DroneDataBase
+struct DummyDroneData : public DroneDataInterface
 {
 	virtual void add_video_frame(uint8_t* data, int y_stride, int width, int height)
 	{
@@ -30,6 +30,8 @@ struct DummyDroneData : public DroneDataBase
 		
 		frame_count++;
 	}
+
+	virtual void add_telemetry_data(const payload_t& payload) {}
 
 	int frame_count = 0;
 };

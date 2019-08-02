@@ -30,7 +30,7 @@ class Copter
 			cv::Mat frame;
 		};
 
-		[[deprecated]] virtual bool initialize() = 0;
+		virtual bool initialize() = 0;
 
 		/** Sends a steering command to the UAV. All values are in the range [-1; 1] */
 		virtual void command(float roll, float pitch, float yaw, float height) = 0;
