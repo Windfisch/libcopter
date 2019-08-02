@@ -12,7 +12,7 @@ using only a keyboard.
 Preparation
 -----------
 
-This is very fiddly for now. Build the `libcopter.so` in
+This is very fiddly for now. Build the `parsestream.so` in
 [parse\_tcpstream](../parse_tcpstream). Then move the `.so`-file that was
 generated in the `build/` directory to this directory.
 

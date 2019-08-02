@@ -8,7 +8,7 @@ to [this documentation](../reverse_engineering/README.md).
 
 Also, there are python bindings that use *boost::python*.
 
-## Building `decode_video`
+## Building `decode_streamdump`
 
 Prerequisites: FFMPEG and its libraries
 
@@ -23,5 +23,5 @@ cmake ..
 make
 ```
 
-This will create `libcopter.so`. Move it to this directory, and
+This will create `parsestream.so`. Move it to this directory, and
 then run `python_test.py` to test it.

@@ -1,4 +1,4 @@
-// TCP stream splitter. warning, this is really dirty code
+// TCP stream splitter.
 
 // based upon the decode_video.c libavcodec API example by Fabrice Bellard
 // its license header is below:

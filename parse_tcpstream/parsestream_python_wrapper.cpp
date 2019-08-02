@@ -46,7 +46,7 @@ struct PyVideoTelemetryParser
 using FrameList = std::vector<np::ndarray>;
 using TelemetryList = std::vector<payload_t>;
 
-BOOST_PYTHON_MODULE(libcopter)
+BOOST_PYTHON_MODULE(parsestream)
 {
 	using namespace boost::python;
 

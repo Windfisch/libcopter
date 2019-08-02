@@ -1,4 +1,4 @@
-import libcopter
+import parsestream
 from sys import argv
 from sys import stderr
 
@@ -10,11 +10,11 @@ import cv2
 # cmake ..
 # make
 # cd ..
-# cp build/libcopter.so ./
+# cp build/parsestream.so ./
 # python python_test.py TCPSTREAM.bin
 
 
-p = libcopter.PyVideoTelemetryParser()
+p = parsestream.PyVideoTelemetryParser()
 
 stream = open(argv[1], 'rb')
 

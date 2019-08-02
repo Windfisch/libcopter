@@ -3,7 +3,7 @@ import command
 import time
 
 import cv2
-import libcopter
+import parsestream
 from select import select
 
 #IP = "131.188.24.11"
@@ -50,7 +50,7 @@ for i in range(10):
 	sock.sendto( command.make_command(0,0,0,0, recalibrate=True), (IP, PORT) )
 	time.sleep(0.1)
 
-p = libcopter.PyVideoTelemetryParser()
+p = parsestream.PyVideoTelemetryParser()
 height,yaw,pitch,roll = 0,0,0,0
 land,launch,panic = False,False,False
 i=0
