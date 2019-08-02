@@ -17,139 +17,6 @@ using baudp = boost::asio::ip::udp;
 
 using bytes = std::vector<uint8_t>;
 
-SG500::SG500(std::string host_, int udp_port_, int tcp_port_) : 
-	io_context(),
-	tcp_socket(io_context),
-	udp_socket(io_context),
-
-	host(host_), udp_port(udp_port_), tcp_port(tcp_port_),
-
-	takeoff_until( std::chrono::steady_clock::now() ),
-	land_until( std::chrono::steady_clock::now() ),
-	panic_until( std::chrono::steady_clock::now() ),
-	next_video_heartbeat( std::chrono::steady_clock::now() )
-{
-	cout << "SG500 ctor" << endl;
-
-}
-
-
-void SG500::command(float roll, float pitch, float yaw, float height)
-{
-	{
-		std::lock_guard<std::mutex> lock(mutex);
-		command_data = {roll, pitch, yaw, height};
-		update = true;
-	}
-	condition_variable.notify_one();
-}
-
-void SG500::takeoff()
-{
-	{
-		std::lock_guard<std::mutex> lock(mutex);
-		takeoff_until = std::chrono::steady_clock::now() + 1000ms;
-		update = true;
-	}
-	condition_variable.notify_one();
-}
-
-void SG500::land()
-{
-	{
-		std::lock_guard<std::mutex> lock(mutex);
-		land_until = std::chrono::steady_clock::now() + 1000ms;
-		update = true;
-	}
-	condition_variable.notify_one();
-}
-
-void SG500::panic()
-{
-	{
-		std::lock_guard<std::mutex> lock(mutex);
-		panic_until = std::chrono::steady_clock::now() + 1000ms;
-		update = true;
-	}
-	condition_variable.notify_one();
-}
-
-void SG500::command_thread_func()
-{
-	while(true)
-	{
-		std::unique_lock<std::mutex> lock(mutex);
-		condition_variable.wait_for(lock, 50ms, [this]{return update;});
-
-		auto now = std::chrono::steady_clock::now();
-		bool takeoff_flag = (now < takeoff_until);
-		bool land_flag = (now < land_until);
-		bool panic_flag = (now < panic_until);
-
-		printf("%+2.4f %+2.4f %+2.4f %+2.4f %1d %1d %1d\n", command_data.roll, command_data.pitch, command_data.yaw, command_data.height, takeoff_flag, land_flag, panic_flag);
-
-		update = false;
-		lock.unlock();
-	}
-}
-
-
-struct DroneDataHandler : public DroneDataInterface
-{
-	virtual void add_video_frame(uint8_t* data, int y_stride, int width, int height)
-	{
-		cv::Mat tmp(height, width, CV_8UC3, data, y_stride);
-		video.push_back({-1, tmp.clone()}); // FIXME: proper timestamp
-
-		if (telemetry.size() == video.size())
-			video.back().timestamp = telemetry.back().timestamp;
-		else
-			std::cout << "ERROR: no telemetry frame preceding the video frame" << endl;
-	}
-
-	virtual void add_telemetry_data(const payload_t& payload)
-	{
-		SG500::TelemetryFrame::Type type;
-		switch (payload.type)
-		{
-			case 0xA1: type = SG500::TelemetryFrame::Type::UNKNOWN1;
-			case 0xA0: type = SG500::TelemetryFrame::Type::UNKNOWN2;
-			default: type = SG500::TelemetryFrame::Type::OTHER;
-		}
-		telemetry.push_back({payload.timestamp/1000000., type, payload.value});
-	}
-
-	std::vector<SG500::VideoFrame> video;
-	std::vector<SG500::TelemetryFrame> telemetry;
-};
-
-std::pair< std::vector<SG500::VideoFrame>, std::vector<SG500::TelemetryFrame> > SG500::poll_data()
-{
-	std::array<uint8_t, 1024> buf;
-
-	auto now = chrono::steady_clock::now();
-	if (now > next_video_heartbeat)
-	{
-		ba::write(tcp_socket, ba::buffer(bytes{0,1,2,3,4,5,6,7,8,9,0x28,0x28})); // send the whole buffer, allow no short writes
-		next_video_heartbeat = now + 800ms; // the app waits one second. better be safe than sorry.
-	}
-	
-	DroneDataHandler data_handler;
-
-	while (tcp_socket.available())
-	{
-		boost::system::error_code error;
-		size_t len = tcp_socket.read_some(boost::asio::buffer(buf), error);
-
-		if (error)
-			throw boost::system::system_error(error);
-		
-		parser.consume_data(buf.data(), len, &data_handler);
-	}
-	
-	return std::make_pair( std::move(data_handler.video), std::move(data_handler.telemetry) );
-}
-
 static std::vector<uint8_t> make_raw_command(uint8_t height, uint8_t yaw, uint8_t pitch, uint8_t roll, bool launch, bool panic, bool land, bool recalibrate, bool auto_altitude=true, uint8_t yaw_trim=0x10, uint8_t pitch_trim=0x10, uint8_t roll_trim=0x10, bool compass=false, uint8_t percent_raw=0)
 {
 	std::vector<uint8_t> command(11, 0);
@@ -226,6 +93,142 @@ static std::pair< std::vector<uint8_t>, std::string > make_date_messages(std::ch
 	std::snprintf(msg2_buf, sizeof(msg2_buf), "date -s \"%4d-%02d-%02d %02d:%02d:%02d\"", t.tm_year+1900, t.tm_mon+1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
 
 	return make_pair(msg1, string(msg2_buf));
+}
+
+
+SG500::SG500(std::string host_, int udp_port_, int tcp_port_) : 
+	io_context(),
+	tcp_socket(io_context),
+	udp_socket(io_context),
+
+	host(host_), udp_port(udp_port_), tcp_port(tcp_port_),
+
+	takeoff_until( std::chrono::steady_clock::now() ),
+	land_until( std::chrono::steady_clock::now() ),
+	panic_until( std::chrono::steady_clock::now() ),
+	next_video_heartbeat( std::chrono::steady_clock::now() )
+{
+	cout << "SG500 ctor" << endl;
+
+}
+
+
+void SG500::command(float roll, float pitch, float yaw, float height)
+{
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		command_data = {roll, pitch, yaw, height};
+		update = true;
+	}
+	condition_variable.notify_one();
+}
+
+void SG500::takeoff()
+{
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		takeoff_until = std::chrono::steady_clock::now() + 1000ms;
+		update = true;
+	}
+	condition_variable.notify_one();
+}
+
+void SG500::land()
+{
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		land_until = std::chrono::steady_clock::now() + 1000ms;
+		update = true;
+	}
+	condition_variable.notify_one();
+}
+
+void SG500::panic()
+{
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		panic_until = std::chrono::steady_clock::now() + 1000ms;
+		update = true;
+	}
+	condition_variable.notify_one();
+}
+
+void SG500::command_thread_func()
+{
+	while(true)
+	{
+		std::unique_lock<std::mutex> lock(mutex);
+		condition_variable.wait_for(lock, 50ms, [this]{return update;});
+
+		auto now = std::chrono::steady_clock::now();
+		bool takeoff_flag = (now < takeoff_until);
+		bool land_flag = (now < land_until);
+		bool panic_flag = (now < panic_until);
+
+		printf("%+2.4f %+2.4f %+2.4f %+2.4f %1d %1d %1d\n", command_data.roll, command_data.pitch, command_data.yaw, command_data.height, takeoff_flag, land_flag, panic_flag);
+		std::vector<uint8_t> buf = make_command(command_data.height, command_data.yaw, command_data.pitch, command_data.roll, takeoff_flag, panic_flag, land_flag);
+		udp_socket.send(ba::buffer(buf));
+
+		update = false;
+		lock.unlock();
+	}
+}
+
+
+struct DroneDataHandler : public DroneDataInterface
+{
+	virtual void add_video_frame(uint8_t* data, int y_stride, int width, int height)
+	{
+		cv::Mat tmp(height, width, CV_8UC3, data, y_stride);
+		video.push_back({-1, tmp.clone()}); // FIXME: proper timestamp
+
+		if (telemetry.size() == video.size())
+			video.back().timestamp = telemetry.back().timestamp;
+		else
+			std::cout << "ERROR: no telemetry frame preceding the video frame" << endl;
+	}
+
+	virtual void add_telemetry_data(const payload_t& payload)
+	{
+		SG500::TelemetryFrame::Type type;
+		switch (payload.type)
+		{
+			case 0xA1: type = SG500::TelemetryFrame::Type::UNKNOWN1;
+			case 0xA0: type = SG500::TelemetryFrame::Type::UNKNOWN2;
+			default: type = SG500::TelemetryFrame::Type::OTHER;
+		}
+		telemetry.push_back({payload.timestamp/1000000., type, payload.value});
+	}
+
+	std::vector<SG500::VideoFrame> video;
+	std::vector<SG500::TelemetryFrame> telemetry;
+};
+
+std::pair< std::vector<SG500::VideoFrame>, std::vector<SG500::TelemetryFrame> > SG500::poll_data()
+{
+	std::array<uint8_t, 1024> buf;
+
+	auto now = chrono::steady_clock::now();
+	if (now > next_video_heartbeat)
+	{
+		ba::write(tcp_socket, ba::buffer(bytes{0,1,2,3,4,5,6,7,8,9,0x28,0x28})); // send the whole buffer, allow no short writes
+		next_video_heartbeat = now + 800ms; // the app waits one second. better be safe than sorry.
+	}
+	
+	DroneDataHandler data_handler;
+
+	while (tcp_socket.available())
+	{
+		boost::system::error_code error;
+		size_t len = tcp_socket.read_some(boost::asio::buffer(buf), error);
+
+		if (error)
+			throw boost::system::system_error(error);
+		
+		parser.consume_data(buf.data(), len, &data_handler);
+	}
+	
+	return std::make_pair( std::move(data_handler.video), std::move(data_handler.telemetry) );
 }
 
 static std::string udp_recv(ba::ip::udp::socket& udp_socket)

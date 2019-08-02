@@ -25,7 +25,6 @@ int main()
 	{
 		auto [vid, tel] = drone.poll_data();
 
-		cout << vid.size() << " / " << tel.size() << endl;
 		for (const auto& frame : vid)
 			cv::imshow("frame", frame.frame);
 
