@@ -42,8 +42,5 @@ endif()
 add_executable(decode_streamdump decode_video.cpp decode_streamdump_main.cpp)
 TARGET_LINK_LIBRARIES(decode_streamdump -lswscale -lavcodec -lavutil)
 
-add_executable(test_sg500 decode_video.cpp sg500.cpp test_sg500_main.cpp)
-TARGET_LINK_LIBRARIES(test_sg500 ${common_libs})
-
-
-
+add_library(copter_static STATIC decode_video.cpp sg500.cpp)
+TARGET_LINK_LIBRARIES(copter_static ${common_libs})
