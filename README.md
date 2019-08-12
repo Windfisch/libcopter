@@ -2,16 +2,40 @@
 
 This aims to be a library that supports various similar cheap
 chinese copters that are controlled via WiFi and have a camera on
-board.
-
-Currently, it is developed for the **SG500** drone, but it seems
+board. Currently, the **SG500** drone is supported, but it seems
 that at least the **blue crab** drone works the very same way.
 
-The goal of this library will be to support controlling the drone
+The library is written in **C++**, and **Python 3** bindings are
+available.
+
+The goal of this library is to support controlling the drone
 as well as retrieving telemetry information and the video stream
 for further use in the OpenCV library.
 
-I aim to support both C++ and Python 3 with numpy.
+## Example
+
+For a [C++ example, see here](examples/cpp_demo).
+
+Below is an untested python example:
+
+```
+#!/usr/bin/python3
+
+import libcopter
+import cv2 # opencv
+
+copter = libcopter.SG500()
+copter.initialize()
+
+copter.takeoff()
+while True:
+	copter.command(0.5,0,0,0)  # go right
+	imgs, _ = copter.poll_data()
+	if len(imgs) > 0:
+		cv2.imshow("img", imgs[-1].frame)
+copter.land()
+```
+
 
 ## Current state
 
