@@ -49,7 +49,7 @@ class Copter
 
 class SG500 : public Copter
 {
-    boost::asio::io_context io_context;
+    boost::asio::io_service io_context;
 	boost::asio::ip::tcp::socket tcp_socket;
 	boost::asio::ip::udp::socket udp_socket;
 

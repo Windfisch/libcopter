@@ -274,7 +274,7 @@ optional<string> expect(baudp::socket& udp_socket, vector<ba::const_buffer> comm
 	{
 		cout << "." << flush;
 		for (const auto& command : commands)
-			udp_socket.send(command);
+			udp_socket.send(ba::buffer(command));
 
 		string reply = udp_recv(udp_socket, recv_timeout);
 
@@ -298,7 +298,7 @@ bool SG500::initialize(int n)
 {
 	cout << "connecting udp" << endl;
 	baudp::resolver udp_resolver(io_context);
-	ba::connect(udp_socket, udp_resolver.resolve(host, to_string(udp_port)));
+	ba::connect(udp_socket, udp_resolver.resolve( baudp::resolver::query(host, to_string(udp_port))));
 	for (int i=0; i<n; i++)
 	{
 		if (i!=0) cout << " :(" << endl;
@@ -335,7 +335,7 @@ bool SG500::initialize(int n)
 			command_thread = std::thread(&SG500::command_thread_func, this); // launch the command thread
 			cout << "connecting tcp to port " << tcp_port << endl;
 			batcp::resolver tcp_resolver(io_context);
-			ba::connect(tcp_socket, tcp_resolver.resolve(host, to_string(tcp_port)));
+			ba::connect(tcp_socket, tcp_resolver.resolve(batcp::resolver::query(host, to_string(tcp_port))));
 			return true;
 		}
 		else
