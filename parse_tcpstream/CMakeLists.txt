@@ -13,8 +13,10 @@ find_package(OpenCV REQUIRED core imgproc highgui)
 
 if (build_python_bindings)
 	FIND_PACKAGE(PythonInterp 3 REQUIRED)
-	FIND_PACKAGE(Boost REQUIRED COMPONENTS python3 numpy3)
+	FIND_PACKAGE(Boost REQUIRED COMPONENTS python3 numpy3 system)
 	FIND_PACKAGE(PythonLibs 3 REQUIRED)
+else()
+	FIND_PACKAGE(Boost REQUIRED COMPONENTS system)
 endif()
 
 
@@ -43,4 +45,4 @@ add_executable(decode_streamdump decode_video.cpp decode_streamdump_main.cpp)
 TARGET_LINK_LIBRARIES(decode_streamdump -lswscale -lavcodec -lavutil)
 
 add_library(copter_static STATIC decode_video.cpp sg500.cpp)
-TARGET_LINK_LIBRARIES(copter_static ${common_libs})
+TARGET_LINK_LIBRARIES(copter_static ${common_libs} Boost::boost Boost::system)
