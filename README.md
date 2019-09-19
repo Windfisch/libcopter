@@ -2,8 +2,8 @@
 
 This aims to be a library that supports various similar cheap
 chinese copters that are controlled via WiFi and have a camera on
-board. Currently, the **SG500** drone is supported, but it seems
-that at least the **blue crab** drone works the very same way.
+board. Currently, the **SG500** and the **JJRC blue crab** drones
+are supported.
 
 The library is written in **C++**, and **Python 3** bindings are
 available.
@@ -53,3 +53,20 @@ stream and parses both. I am currently working on python bindings.
 
 **This project is in a _very_ early state, do not expect much
 from it yet.**
+
+## Troubleshooting
+
+**My (new) drone keeps flying upwards until it hits the ceiling
+and is uncontrollable.** This is not a libcopter problem. You
+have to calibrate your drone first, e.g. by following these steps:
+
+  1. Connect your smartphone to the drone
+  2. Launch the app
+  3. Enable the control and the altitude hold modes using the buttons
+     on the top, so that the control sticks and the takeoff/land/panic
+     buttons appear.
+  4. Press the options button, and select the gyro button in the menu
+     that opens. Your drone should flash.
+
+Calibration support will soon be available in libcopter. The calibration
+data seems to persist over drone reboots.
