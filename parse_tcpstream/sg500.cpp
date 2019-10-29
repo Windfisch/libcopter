@@ -106,6 +106,7 @@ SG500::SG500(std::string host_, int udp_port_, int tcp_port_) :
 	takeoff_until( std::chrono::steady_clock::now() ),
 	land_until( std::chrono::steady_clock::now() ),
 	panic_until( std::chrono::steady_clock::now() ),
+	recalibrate_until( std::chrono::steady_clock::now() ),
 	next_video_heartbeat( std::chrono::steady_clock::now() )
 {
 	cout << "SG500 ctor" << endl;
@@ -153,6 +154,16 @@ void SG500::panic()
 	condition_variable.notify_one();
 }
 
+void SG500::recalibrate()
+{
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		recalibrate_until = std::chrono::steady_clock::now() + 1000ms;
+		update = true;
+	}
+	condition_variable.notify_one();
+}
+
 void SG500::command_thread_func()
 {
 	while(true)
@@ -164,9 +175,10 @@ void SG500::command_thread_func()
 		bool takeoff_flag = (now < takeoff_until);
 		bool land_flag = (now < land_until);
 		bool panic_flag = (now < panic_until);
+		bool recalibrate_flag = (now < recalibrate_until);
 
-		printf("%+2.4f %+2.4f %+2.4f %+2.4f %1d %1d %1d\n", command_data.roll, command_data.pitch, command_data.yaw, command_data.height, takeoff_flag, land_flag, panic_flag);
-		std::vector<uint8_t> buf = make_command(command_data.height, command_data.yaw, command_data.pitch, command_data.roll, takeoff_flag, panic_flag, land_flag);
+		printf("%+2.4f %+2.4f %+2.4f %+2.4f %1d %1d %1d %1d\n", command_data.roll, command_data.pitch, command_data.yaw, command_data.height, takeoff_flag, land_flag, panic_flag, recalibrate_flag);
+		std::vector<uint8_t> buf = make_command(command_data.height, command_data.yaw, command_data.pitch, command_data.roll, takeoff_flag, panic_flag, land_flag, recalibrate_flag);
 		udp_socket.send(ba::buffer(buf));
 
 		update = false;

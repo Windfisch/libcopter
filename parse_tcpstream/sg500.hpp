@@ -38,6 +38,7 @@ class Copter
 		virtual void takeoff() = 0;
 		virtual void land() = 0;
 		virtual void panic() = 0;
+		virtual void recalibrate() = 0;
 
 		/** Checks if new data is available, and if so, returns it.
 
@@ -72,6 +73,7 @@ class SG500 : public Copter
 		void takeoff();
 		void land();
 		void panic();
+		void recalibrate();
 
 		/** Checks if new data is available, and if so, returns it.
 
@@ -89,6 +91,7 @@ class SG500 : public Copter
 		std::chrono::steady_clock::time_point takeoff_until;
 		std::chrono::steady_clock::time_point land_until;
 		std::chrono::steady_clock::time_point panic_until;
+		std::chrono::steady_clock::time_point recalibrate_until;
 		bool update = false;
 
 		std::thread command_thread; // must be the last member. (So it will be the first one to be destructed)
