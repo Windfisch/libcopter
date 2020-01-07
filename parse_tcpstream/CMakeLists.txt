@@ -13,7 +13,7 @@ find_package(OpenCV REQUIRED core imgproc highgui)
 
 if (build_python_bindings)
 	FIND_PACKAGE(PythonInterp 3 REQUIRED)
-	FIND_PACKAGE(Boost REQUIRED COMPONENTS python3 numpy3 system)
+	FIND_PACKAGE(Boost REQUIRED COMPONENTS python38 numpy38 system)
 	FIND_PACKAGE(PythonLibs 3 REQUIRED)
 else()
 	FIND_PACKAGE(Boost REQUIRED COMPONENTS system)
