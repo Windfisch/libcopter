@@ -1,16 +1,17 @@
 # libcopter, or rather libSG500 for now
 
-This aims to be a library that supports various similar cheap
+This library supports various similar cheap
 chinese copters that are controlled via WiFi and have a camera on
 board. Currently, the **SG500** and the **JJRC blue crab** drones
 are supported.
 
 The library is written in **C++**, and **Python 3** bindings are
-available.
+available. Also, a [**ROS node**](https://github.com/Windfisch/libcopter_ros)
+is available for utilizing these drones with the [Robot Operating System](https://ros.org).
 
 The goal of this library is to support controlling the drone
 as well as retrieving telemetry information and the video stream
-for further use in the OpenCV library.
+for further use in the [OpenCV](https://opencv.org/) library.
 
 ## Example
 
