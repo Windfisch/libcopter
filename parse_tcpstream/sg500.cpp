@@ -205,9 +205,9 @@ struct DroneDataHandler : public DroneDataInterface
 		SG500::TelemetryFrame::Type type;
 		switch (payload.type)
 		{
-			case 0xA1: type = SG500::TelemetryFrame::Type::UNKNOWN1;
-			case 0xA0: type = SG500::TelemetryFrame::Type::UNKNOWN2;
-			default: type = SG500::TelemetryFrame::Type::OTHER;
+			case 0xA1: type = SG500::TelemetryFrame::Type::UNKNOWN1; break;
+			case 0xA0: type = SG500::TelemetryFrame::Type::UNKNOWN2; break;
+			default: type = SG500::TelemetryFrame::Type::OTHER; cout << "unknown telemetry type " << int(payload.type) << endl;
 		}
 		telemetry.push_back({payload.timestamp/1000000., type, payload.value});
 	}
