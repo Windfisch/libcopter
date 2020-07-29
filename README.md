@@ -5,7 +5,7 @@ chinese copters that are controlled via WiFi and have a camera on
 board. Currently, the **SG500** and the **JJRC blue crab** drones
 are supported.
 
-The library is written in **C++**, and **Python 3** bindings are
+It is written in **C++**, and **Python 3** bindings are
 available. Also, a [**ROS node**](https://github.com/Windfisch/libcopter_ros)
 is available for utilizing these drones with the [Robot Operating System](https://ros.org).
 
